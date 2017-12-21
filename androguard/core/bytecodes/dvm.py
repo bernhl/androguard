@@ -428,9 +428,6 @@ class HeaderItem(object):
         self.class_off_obj = None
         self.data_off_obj = None
 
-    def reload(self):
-        pass
-
     def get_obj(self):
         if self.map_off_obj is None:
             self.map_off_obj = self.CM.get_item_by_offset(self.map_off)
@@ -608,9 +605,6 @@ class AnnotationSetItem(object):
     def get_off(self):
         return self.offset
 
-    def reload(self):
-        pass
-
     def show(self):
         bytecode._PrintSubBanner("Annotation Set Item")
         for i in self.annotation_off_item:
@@ -703,9 +697,6 @@ class AnnotationSetRefList(object):
 
     def set_off(self, off):
         self.offset = off
-
-    def reload(self):
-        pass
 
     def show(self):
         bytecode._PrintSubBanner("Annotation Set Ref List Item")
@@ -991,9 +982,6 @@ class AnnotationsDirectoryItem(object):
     def get_off(self):
         return self.offset
 
-    def reload(self):
-        pass
-
     def show(self):
         bytecode._PrintSubBanner("Annotations Directory Item")
         bytecode._PrintDefault(
@@ -1155,9 +1143,6 @@ class TypeList(object):
     def get_off(self):
         return self.offset + self.len_pad
 
-    def reload(self):
-        pass
-
     def show(self):
         bytecode._PrintSubBanner("Type List")
         bytecode._PrintDefault("size=%d\n" % self.size)
@@ -1304,9 +1289,6 @@ class DebugInfoItem(object):
             bcode = DBGBytecode(self.CM, get_byte(buff))
             self.bytecodes.append(bcode)
 
-    def reload(self):
-        pass
-
     def get_parameters_size(self):
         return self.parameters_size
 
@@ -1367,43 +1349,6 @@ VALUE_ARRAY = 0x1c  # (none; must be 0)      encoded_array  an array of values, 
 VALUE_ANNOTATION = 0x1d  # (none; must be 0)      encoded_annotation     a sub-annotation, in the format specified by "encoded_annotation Format" below. The size of the value is implicit in the encoding.
 VALUE_NULL = 0x1e  # (none; must be 0)      (none)  null reference value
 VALUE_BOOLEAN = 0x1f  # boolean (0..1) (none)  one-bit value; 0 for false and 1 for true. The bit is represented in the value_arg.
-
-
-class DebugInfoItemEmpty(object):
-    def __init__(self, buff, cm):
-        self.CM = cm
-
-        self.offset = buff.get_idx()
-        self.__buff = buff
-        self.__raw = ""
-
-    def set_off(self, off):
-        self.offset = off
-
-    def get_off(self):
-        return self.offset
-
-    def reload(self):
-        offset = self.offset
-
-        n = self.CM.get_next_offset_item(offset)
-
-        s_idx = self.__buff.get_idx()
-        self.__buff.set_idx(offset)
-        self.__raw = self.__buff.read(n - offset)
-        self.__buff.set_idx(s_idx)
-
-    def show(self):
-        pass
-
-    def get_obj(self):
-        return []
-
-    def get_raw(self):
-        return self.__raw
-
-    def get_length(self):
-        return len(self.__raw)
 
 
 class EncodedArray(object):
@@ -1730,9 +1675,6 @@ class AnnotationItem(object):
     def get_off(self):
         return self.offset
 
-    def reload(self):
-        pass
-
     def show(self):
         bytecode._PrintSubBanner("Annotation Item")
         bytecode._PrintDefault("visibility=%d\n" % self.visibility)
@@ -1778,9 +1720,6 @@ class EncodedArrayItem(object):
 
     def set_off(self, off):
         self.offset = off
-
-    def reload(self):
-        pass
 
     def show(self):
         bytecode._PrintSubBanner("Encoded Array Item")
@@ -1856,9 +1795,6 @@ class StringDataItem:
     def get_off(self):
         return self.offset
 
-    def reload(self):
-        pass
-
     def get(self):
         s = mutf8.decode(self.data)
         assert len(s) == self.utf16_size, "UTF16 Length does not match!"
@@ -1923,9 +1859,6 @@ class StringIdItem(object):
     def get_off(self):
         return self.offset
 
-    def reload(self):
-        pass
-
     def show(self):
         bytecode._PrintSubBanner("String Id Item")
         bytecode._PrintDefault("string_data_off=%x\n" % self.string_data_off)
@@ -1976,10 +1909,6 @@ class TypeIdItem(object):
         :rtype: string
         """
         return self.descriptor_idx_value
-
-    def reload(self):
-        if self.descriptor_idx_value != self.CM.get_string(self.descriptor_idx):
-            raise ValueError
 
     def show(self):
         bytecode._PrintSubBanner("Type Id Item")
@@ -2035,10 +1964,6 @@ class TypeHIdItem(object):
     def get_off(self):
         return self.offset
 
-    def reload(self):
-        for i in self.type:
-            i.reload()
-
     def show(self):
         bytecode._PrintSubBanner("Type List Item")
         for i in self.type:
@@ -2078,12 +2003,6 @@ class ProtoIdItem(object):
         self.shorty_idx_value = self.CM.get_string(self.shorty_idx)
         self.return_type_idx_value = self.CM.get_type(self.return_type_idx)
         self.parameters_off_value = None
-
-    def reload(self):
-        if self.shorty_idx_value != self.CM.get_string(self.shorty_idx):
-            raise ValueError
-        if self.return_type_idx_value != self.CM.get_type(self.return_type_idx):
-            raise ValueError
 
     def get_shorty_idx(self):
         """
@@ -2199,10 +2118,6 @@ class ProtoHIdItem(object):
         except IndexError:
             return ProtoIdItemInvalid()
 
-    def reload(self):
-        for i in self.proto:
-            i.reload()
-
     def show(self):
         bytecode._PrintSubBanner("Proto List Item")
         for i in self.proto:
@@ -2242,16 +2157,6 @@ class FieldIdItem(object):
         self.class_idx_value = self.CM.get_type(self.class_idx)
         self.type_idx_value = self.CM.get_type(self.type_idx)
         self.name_idx_value = self.CM.get_string(self.name_idx)
-
-    def reload(self):
-        if self.class_idx_value != self.CM.get_type(self.class_idx):
-            raise ValueError
-
-        if self.type_idx_value != self.CM.get_type(self.type_idx):
-            raise ValueError
-
-        if self.name_idx_value != self.CM.get_string(self.name_idx):
-            raise ValueError
 
     def get_class_idx(self):
         """
@@ -2376,10 +2281,6 @@ class FieldHIdItem(object):
         except IndexError:
             return FieldIdItemInvalid()
 
-    def reload(self):
-        for i in self.elem:
-            i.reload()
-
     def show(self):
         nb = 0
         for i in self.elem:
@@ -2421,16 +2322,6 @@ class MethodIdItem(object):
         self.class_idx_value = self.CM.get_type(self.class_idx)
         self.proto_idx_value = self.CM.get_proto(self.proto_idx)
         self.name_idx_value = self.CM.get_string(self.name_idx)
-
-    def reload(self):
-        if self.class_idx_value != self.CM.get_type(self.class_idx):
-            raise ValueError
-
-        if self.proto_idx_value != self.CM.get_proto(self.proto_idx):
-            raise ValueError
-
-        if self.name_idx_value != self.CM.get_string(self.name_idx):
-            raise ValueError
 
 
     def get_class_idx(self):
@@ -2565,10 +2456,6 @@ class MethodHIdItem(object):
         except IndexError:
             return MethodIdItemInvalid()
 
-    def reload(self):
-        for i in self.methods:
-            i.reload()
-
     def show(self):
         print("METHOD_ID_ITEM")
         nb = 0
@@ -2671,26 +2558,6 @@ class EncodedField(object):
 
         self.init_value = None
         self.access_flags_string = None
-        self.loaded = False
-
-    def load(self):
-        if self.loaded:
-            return
-        self.reload()
-        self.loaded = True
-
-    def reload(self):
-        name = self.CM.get_field(self.field_idx)
-
-        if self.class_name != name[0]:
-            raise ValueError
-
-        if self.name != name[2]:
-            raise ValueError
-
-        if self.proto != ''.join(i for i in name[1]):
-            raise ValueError
-
 
     def set_init_value(self, value):
         """
@@ -2743,8 +2610,6 @@ class EncodedField(object):
 
         :rtype: string
         """
-        if not self.loaded:
-            self.load()
         return self.class_name
 
     def get_descriptor(self):
@@ -2753,8 +2618,6 @@ class EncodedField(object):
 
         :rtype: string
         """
-        if not self.loaded:
-            self.load()
         return self.proto
 
     def get_name(self):
@@ -2763,8 +2626,6 @@ class EncodedField(object):
 
         :rtype: string
         """
-        if not self.loaded:
-            self.load()
         return self.name
 
     def get_access_flags_string(self):
@@ -2873,7 +2734,6 @@ class EncodedMethod(object):
         self.access_flags_string = None
 
         self.notes = []
-        self.loaded = False
 
     def adjust_idx(self, val):
         self.method_idx = self.method_idx_diff + val
@@ -2934,36 +2794,6 @@ class EncodedMethod(object):
             if self.access_flags_string == "":
                 self.access_flags_string = "0x%x" % self.get_access_flags()
         return self.access_flags_string
-
-    def load(self):
-        if self.loaded:
-            return
-        self.reload()
-        self.loaded = True
-
-    def reload(self):
-        v = self.CM.get_method(self.method_idx)
-        if v and len(v) >= 3:
-            if self.class_name != v[0]:
-                raise ValueError
-
-            if self.name != v[1]:
-                raise ValueError
-
-            if self.proto != ''.join(i for i in v[2]):
-                raise ValueError
-
-        else:
-            if self.class_name != 'CLASS_NAME_ERROR':
-                raise ValueError
-
-            if self.name != 'NAME_ERROR':
-                raise ValueError
-
-            if self.proto != 'PROTO_ERROR':
-                raise ValueError
-
-        self.code = self.CM.get_code(self.code_off)
 
     def get_locals(self):
         ret = self.proto.split(')')
@@ -3093,8 +2923,6 @@ class EncodedMethod(object):
 
         :rtype: :class:`DalvikCode` object or None if no Code
         """
-        if not self.loaded:
-            self.load()
         return self.code
 
     def is_cached_instructions(self):
@@ -3155,8 +2983,6 @@ class EncodedMethod(object):
 
         :rtype: string
         """
-        if not self.loaded:
-            self.load()
         return self.proto
 
     def get_class_name(self):
@@ -3165,8 +2991,6 @@ class EncodedMethod(object):
 
         :rtype: string
         """
-        if not self.loaded:
-            self.load()
         return self.class_name
 
     def get_name(self):
@@ -3175,8 +2999,6 @@ class EncodedMethod(object):
 
         :rtype: string
         """
-        if not self.loaded:
-            self.load()
         return self.name
 
     def get_triple(self):
@@ -3263,9 +3085,6 @@ class ClassDataItem(object):
                             EncodedMethod, buff, cm)
         self._load_elements(self.virtual_methods_size, self.virtual_methods,
                             EncodedMethod, buff, cm)
-
-    def reload(self):
-        pass
 
     def get_static_fields_size(self):
         """
@@ -3469,7 +3288,6 @@ class ClassDefItem(object):
         if self.class_data_off != 0:
             self.class_data_item = self.CM.get_class_data_item(
                 self.class_data_off)
-            self.class_data_item.reload()
 
         if self.static_values_off != 0:
             self.static_values = self.CM.get_encoded_array_item(
@@ -3483,28 +3301,6 @@ class ClassDefItem(object):
         self.name = self.CM.get_type(self.class_idx)
         self.sname = self.CM.get_type(self.superclass_idx)
         self.access_flags_string = None
-
-    def reload(self):
-        if self.name != self.CM.get_type(self.class_idx):
-            raise Exception
-        if self.sname != self.CM.get_type(self.superclass_idx):
-            raise Exception
-        if self.interfaces != self.CM.get_type_list(self.interfaces_off):
-            raise Exception
-
-        # lbe TODO
-        if self.class_data_off != 0:
-            self.class_data_item = self.CM.get_class_data_item(
-                self.class_data_off)
-            self.class_data_item.reload()
-
-        if self.static_values_off != 0:
-            self.static_values = self.CM.get_encoded_array_item(
-                self.static_values_off)
-
-            if self.class_data_item is not None:
-                self.class_data_item.set_static_fields(
-                    self.static_values.get_value())
 
     def __str__(self):
         return "%s->%s" % (self.get_superclassname(), self.get_name())
@@ -3798,10 +3594,6 @@ class ClassHDefItem(object):
 
     def get_names(self):
         return [x.get_name() for x in self.class_def]
-
-    def reload(self):
-        for i in self.class_def:
-            i.reload()
 
     def show(self):
         for i in self.class_def:
@@ -6577,9 +6369,6 @@ class DCode(object):
         for i in self.cached_instructions:
             yield i
 
-    def reload(self):
-        self.cached_instructions = None
-
     def add_inote(self, msg, idx, off=None):
         """
         Add a message to a specific instruction by using (default) the index of the address if specified
@@ -6856,9 +6645,6 @@ class DalvikCode(object):
     def set_idx(self, idx):
         self.code.set_idx(idx)
 
-    def reload(self):
-        self.code.reload()
-
     def get_length(self):
         return self.insns_size
 
@@ -6993,10 +6779,6 @@ class CodeItem(object):
         except KeyError:
             return None
 
-    def reload(self):
-        for i in self.code:
-            i.reload()
-
     def show(self, m_a=None):
         # FIXME workaround for showing the MAP_ITEMS
         # if m_a is none, we use get_raw.
@@ -7100,7 +6882,7 @@ class MapItem(object):
             self.item = [StringDataItem(buff, cm) for i in range(0, self.size)]
 
         elif TYPE_MAP_ITEM[self.type] == "TYPE_DEBUG_INFO_ITEM":
-            self.item = DebugInfoItemEmpty(buff, cm)
+            self.item = DebugInfoItem(buff, cm)
 
         elif TYPE_MAP_ITEM[self.type] == "TYPE_ENCODED_ARRAY_ITEM":
             self.item = [EncodedArrayItem(buff, cm)
@@ -7119,14 +6901,6 @@ class MapItem(object):
         diff = time.time() - started_at
         minutes, seconds = float(diff // 60), float(diff % 60)
         log.debug("End of parsing %s = %s:%s" % (TYPE_MAP_ITEM[self.type], str(minutes), str(round(seconds, 2))))
-
-    def reload(self):
-        if self.item is not None:
-            if isinstance(self.item, list):
-                for i in self.item:
-                    i.reload()
-            else:
-                self.item.reload()
 
     def show(self):
         bytecode._Print("\tMAP_TYPE_ITEM", TYPE_MAP_ITEM[self.type])
@@ -7519,15 +7293,6 @@ class MapList(object):
 
             self.CM.add_type_item(TYPE_MAP_ITEM[mi.get_type()], mi, c_item)
 
-        for i in self.map_item:
-            log.debug("Reloading %s" % TYPE_MAP_ITEM[i.get_type()])
-            started_at = time.time()
-            i.reload()
-            diff = time.time() - started_at
-            minutes, seconds = float(diff // 60), float(diff % 60)
-            log.debug(
-                "End of reloading %s = %s:%s" % (TYPE_MAP_ITEM[i.get_type()], str(minutes), str(round(seconds, 2))))
-
     @staticmethod
     def determine_load_order():
         dependencies = {
@@ -7575,9 +7340,6 @@ class MapList(object):
                 unloaded.discard(type_name)
 
         return ordered
-
-    def reload(self):
-        pass
 
     def get_off(self):
         return self.offset
