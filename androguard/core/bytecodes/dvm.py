@@ -37,6 +37,8 @@ TYPE_MAP_ITEM = {
     0x4: "TYPE_FIELD_ID_ITEM",
     0x5: "TYPE_METHOD_ID_ITEM",
     0x6: "TYPE_CLASS_DEF_ITEM",
+    0x7: "TYPE_CALL_SITE_ID_ITEM",
+    0x8: "TYPE_METHOD_HANDLE_ITEM",
     0x1000: "TYPE_MAP_LIST",
     0x1001: "TYPE_TYPE_LIST",
     0x1002: "TYPE_ANNOTATION_SET_REF_LIST",
@@ -1110,7 +1112,7 @@ class TypeList(object):
     def get_pad(self):
         """
         Return the alignment string
-        
+
         :rtype: string
         """
         return self.pad
@@ -1957,7 +1959,7 @@ class TypeIdItem(object):
         self.offset = buff.get_idx()
 
         self.descriptor_idx = unpack("=I", buff.read(4))[0]
-        self.descriptor_idx_value = None
+        self.descriptor_idx_value = self.CM.get_string(self.descriptor_idx)
 
     def get_descriptor_idx(self):
         """
@@ -1976,7 +1978,8 @@ class TypeIdItem(object):
         return self.descriptor_idx_value
 
     def reload(self):
-        self.descriptor_idx_value = self.CM.get_string(self.descriptor_idx)
+        if self.descriptor_idx_value != self.CM.get_string(self.descriptor_idx):
+            raise ValueError
 
     def show(self):
         bytecode._PrintSubBanner("Type Id Item")
@@ -2072,13 +2075,15 @@ class ProtoIdItem(object):
         self.return_type_idx = unpack("=I", buff.read(4))[0]
         self.parameters_off = unpack("=I", buff.read(4))[0]
 
-        self.shorty_idx_value = None
-        self.return_type_idx_value = None
+        self.shorty_idx_value = self.CM.get_string(self.shorty_idx)
+        self.return_type_idx_value = self.CM.get_type(self.return_type_idx)
         self.parameters_off_value = None
 
     def reload(self):
-        self.shorty_idx_value = self.CM.get_string(self.shorty_idx)
-        self.return_type_idx_value = self.CM.get_type(self.return_type_idx)
+        if self.shorty_idx_value != self.CM.get_string(self.shorty_idx):
+            raise ValueError
+        if self.return_type_idx_value != self.CM.get_type(self.return_type_idx):
+            raise ValueError
 
     def get_shorty_idx(self):
         """
@@ -2131,6 +2136,7 @@ class ProtoIdItem(object):
 
         :rtype: string
         """
+        # TODO? do this in __init__
         if self.parameters_off_value is None:
             params = self.CM.get_type_list(self.parameters_off)
             self.parameters_off_value = '({})'.format(' '.join(params))
@@ -2233,14 +2239,19 @@ class FieldIdItem(object):
         self.type_idx = unpack("=H", buff.read(2))[0]
         self.name_idx = unpack("=I", buff.read(4))[0]
 
-        self.class_idx_value = None
-        self.type_idx_value = None
-        self.name_idx_value = None
-
-    def reload(self):
         self.class_idx_value = self.CM.get_type(self.class_idx)
         self.type_idx_value = self.CM.get_type(self.type_idx)
         self.name_idx_value = self.CM.get_string(self.name_idx)
+
+    def reload(self):
+        if self.class_idx_value != self.CM.get_type(self.class_idx):
+            raise ValueError
+
+        if self.type_idx_value != self.CM.get_type(self.type_idx):
+            raise ValueError
+
+        if self.name_idx_value != self.CM.get_string(self.name_idx):
+            raise ValueError
 
     def get_class_idx(self):
         """
@@ -2407,14 +2418,20 @@ class MethodIdItem(object):
         self.proto_idx = unpack("=H", buff.read(2))[0]
         self.name_idx = unpack("=I", buff.read(4))[0]
 
-        self.class_idx_value = None
-        self.proto_idx_value = None
-        self.name_idx_value = None
-
-    def reload(self):
         self.class_idx_value = self.CM.get_type(self.class_idx)
         self.proto_idx_value = self.CM.get_proto(self.proto_idx)
         self.name_idx_value = self.CM.get_string(self.name_idx)
+
+    def reload(self):
+        if self.class_idx_value != self.CM.get_type(self.class_idx):
+            raise ValueError
+
+        if self.proto_idx_value != self.CM.get_proto(self.proto_idx):
+            raise ValueError
+
+        if self.name_idx_value != self.CM.get_string(self.name_idx):
+            raise ValueError
+
 
     def get_class_idx(self):
         """
@@ -2638,18 +2655,19 @@ class EncodedField(object):
     :type cm: :class:`ClassManager`
     """
 
-    def __init__(self, buff, cm):
+    def __init__(self, buff, cm, val):
         self.CM = cm
         self.offset = buff.get_idx()
 
         self.field_idx_diff = readuleb128(buff)
         self.access_flags = readuleb128(buff)
 
-        self.field_idx = 0
+        self.field_idx = self.field_idx_diff + val
 
-        self.name = None
-        self.proto = None
-        self.class_name = None
+        name = self.CM.get_field(self.field_idx)
+        self.name = name[2]
+        self.proto = ''.join(i for i in name[1])
+        self.class_name = name[0]
 
         self.init_value = None
         self.access_flags_string = None
@@ -2663,9 +2681,16 @@ class EncodedField(object):
 
     def reload(self):
         name = self.CM.get_field(self.field_idx)
-        self.class_name = name[0]
-        self.name = name[2]
-        self.proto = ''.join(i for i in name[1])
+
+        if self.class_name != name[0]:
+            raise ValueError
+
+        if self.name != name[2]:
+            raise ValueError
+
+        if self.proto != ''.join(i for i in name[1]):
+            raise ValueError
+
 
     def set_init_value(self, value):
         """
@@ -2748,6 +2773,7 @@ class EncodedField(object):
 
         :rtype: string
         """
+        # lbe TODO
         if self.access_flags_string is None:
             self.access_flags_string = get_access_flags_string(
                 self.get_access_flags())
@@ -2821,7 +2847,7 @@ class EncodedMethod(object):
     :type cm: :class:`ClassManager`
     """
 
-    def __init__(self, buff, cm):
+    def __init__(self, buff, cm, val):
         self.CM = cm
         self.offset = buff.get_idx()
 
@@ -2829,13 +2855,20 @@ class EncodedMethod(object):
         self.access_flags = readuleb128(buff)  #: access flags of the method
         self.code_off = readuleb128(buff)  #: offset of the code section
 
-        self.method_idx = 0
+        self.method_idx = self.method_idx_diff + val
 
-        self.name = None
-        self.proto = None
-        self.class_name = None
+        # lbe TODO EncodedField uses different order?!
+        v = self.CM.get_method(self.method_idx)
+        if v and len(v) >= 3:
+            self.name = v[1]
+            self.proto = ''.join(i for i in v[2])
+            self.class_name = v[0]
+        else:
+            self.class_name = 'CLASS_NAME_ERROR'
+            self.name = 'NAME_ERROR'
+            self.proto = 'PROTO_ERROR'
 
-        self.code = None
+        self.code = self.CM.get_code(self.code_off)
 
         self.access_flags_string = None
 
@@ -2911,13 +2944,24 @@ class EncodedMethod(object):
     def reload(self):
         v = self.CM.get_method(self.method_idx)
         if v and len(v) >= 3:
-            self.class_name = v[0]
-            self.name = v[1]
-            self.proto = ''.join(i for i in v[2])
+            if self.class_name != v[0]:
+                raise ValueError
+
+            if self.name != v[1]:
+                raise ValueError
+
+            if self.proto != ''.join(i for i in v[2]):
+                raise ValueError
+
         else:
-            self.class_name = 'CLASS_NAME_ERROR'
-            self.name = 'NAME_ERROR'
-            self.proto = 'PROTO_ERROR'
+            if self.class_name != 'CLASS_NAME_ERROR':
+                raise ValueError
+
+            if self.name != 'NAME_ERROR':
+                raise ValueError
+
+            if self.proto != 'PROTO_ERROR':
+                raise ValueError
 
         self.code = self.CM.get_code(self.code_off)
 
@@ -3321,7 +3365,7 @@ class ClassDataItem(object):
     def _load_elements(self, size, l, Type, buff, cm):
         prev = 0
         for i in range(0, size):
-            el = Type(buff, cm)
+            el = Type(buff, cm, prev)
             el.adjust_idx(prev)
 
             if isinstance(el, EncodedField):
@@ -3418,19 +3462,37 @@ class ClassDefItem(object):
         self.class_data_off = unpack("=I", buff.read(4))[0]
         self.static_values_off = unpack("=I", buff.read(4))[0]
 
-        self.interfaces = []
+        self.interfaces = self.CM.get_type_list(self.interfaces_off)
         self.class_data_item = None
         self.static_values = None
 
-        self.name = None
-        self.sname = None
+        if self.class_data_off != 0:
+            self.class_data_item = self.CM.get_class_data_item(
+                self.class_data_off)
+            self.class_data_item.reload()
+
+        if self.static_values_off != 0:
+            self.static_values = self.CM.get_encoded_array_item(
+                self.static_values_off)
+
+            if self.class_data_item is not None:
+                self.class_data_item.set_static_fields(
+                    self.static_values.get_value())
+
+
+        self.name = self.CM.get_type(self.class_idx)
+        self.sname = self.CM.get_type(self.superclass_idx)
         self.access_flags_string = None
 
     def reload(self):
-        self.name = self.CM.get_type(self.class_idx)
-        self.sname = self.CM.get_type(self.superclass_idx)
-        self.interfaces = self.CM.get_type_list(self.interfaces_off)
+        if self.name != self.CM.get_type(self.class_idx):
+            raise Exception
+        if self.sname != self.CM.get_type(self.superclass_idx):
+            raise Exception
+        if self.interfaces != self.CM.get_type_list(self.interfaces_off):
+            raise Exception
 
+        # lbe TODO
         if self.class_data_off != 0:
             self.class_data_item = self.CM.get_class_data_item(
                 self.class_data_off)
@@ -7417,6 +7479,9 @@ class ClassManager(object):
         return DebugInfoItem(self.buff, self)
 
 
+
+
+
 class MapList(object):
     """
     This class can parse the "map_list" of the dex format
@@ -7440,9 +7505,9 @@ class MapList(object):
 
             buff.set_idx(idx + mi.get_length())
 
-        # TYPE_STRING_DATA_ITEM will be at the beginning of ordered
+        load_order = self.determine_load_order()
         ordered = sorted(self.map_item,
-                         key=lambda mi: TYPE_MAP_ITEM[mi.get_type()] != "TYPE_STRING_DATA_ITEM")
+                         key=lambda mi: load_order[TYPE_MAP_ITEM[mi.get_type()]])
 
         for mi in ordered:
             mi.parse()
@@ -7462,6 +7527,54 @@ class MapList(object):
             minutes, seconds = float(diff // 60), float(diff % 60)
             log.debug(
                 "End of reloading %s = %s:%s" % (TYPE_MAP_ITEM[i.get_type()], str(minutes), str(round(seconds, 2))))
+
+    @staticmethod
+    def determine_load_order():
+        dependencies = {
+            "TYPE_MAP_LIST": set(),
+            "TYPE_HEADER_ITEM": set(),
+            "TYPE_STRING_ID_ITEM": set(["TYPE_STRING_DATA_ITEM"]),
+            "TYPE_TYPE_ID_ITEM": set(["TYPE_STRING_ID_ITEM"]),
+            "TYPE_PROTO_ID_ITEM": set(["TYPE_STRING_ID_ITEM", "TYPE_TYPE_ID_ITEM", "TYPE_TYPE_LIST"]),
+            "TYPE_FIELD_ID_ITEM": set(["TYPE_STRING_ID_ITEM", "TYPE_TYPE_ID_ITEM"]),
+            "TYPE_METHOD_ID_ITEM": set(["TYPE_STRING_ID_ITEM", "TYPE_TYPE_ID_ITEM", "TYPE_PROTO_ID_ITEM"]),
+            "TYPE_CLASS_DEF_ITEM": set(["TYPE_TYPE_ID_ITEM", "TYPE_TYPE_LIST", "TYPE_STRING_ID_ITEM",
+                                        "TYPE_DEBUG_INFO_ITEM", "TYPE_ANNOTATIONS_DIRECTORY_ITEM",
+                                        "TYPE_CLASS_DATA_ITEM", "TYPE_ENCODED_ARRAY_ITEM"]),
+            "TYPE_CALL_SITE_ID_ITEM": set(["TYPE_ENCODED_ARRAY_ITEM"]),  # correct?
+            "TYPE_METHOD_HANDLE_ITEM": set(["TYPE_FIELD_ID_ITEM", "TYPE_METHOD_ID_ITEM"]),
+            "TYPE_TYPE_LIST": set(["TYPE_TYPE_ID_ITEM"]),
+            "TYPE_ANNOTATION_SET_REF_LIST": set(["TYPE_ANNOTATION_SET_ITEM"]),
+            "TYPE_ANNOTATION_SET_ITEM": set(["TYPE_ANNOTATION_ITEM"]),
+            "TYPE_CLASS_DATA_ITEM": set(["TYPE_FIELD_ID_ITEM", "TYPE_METHOD_ID_ITEM"]),
+            "TYPE_CODE_ITEM": set(["TYPE_DEBUG_INFO_ITEM", "TYPE_TYPE_ID_ITEM"]),
+            "TYPE_STRING_DATA_ITEM": set(),
+            "TYPE_DEBUG_INFO_ITEM": set(["TYPE_STRING_ID_ITEM", "TYPE_TYPE_ID_ITEM"]),
+            "TYPE_ANNOTATION_ITEM": set(["TYPE_PROTO_ID_ITEM", "TYPE_METHOD_HANDLE_ITEM",
+                                            "TYPE_STRING_ID_ITEM", "TYPE_TYPE_ID_ITEM",
+                                            "TYPE_FIELD_ID_ITEM", "TYPE_METHOD_ID_ITEM"]),
+            "TYPE_ENCODED_ARRAY_ITEM": set(["TYPE_PROTO_ID_ITEM", "TYPE_METHOD_HANDLE_ITEM",
+                                            "TYPE_STRING_ID_ITEM", "TYPE_TYPE_ID_ITEM",
+                                            "TYPE_FIELD_ID_ITEM", "TYPE_METHOD_ID_ITEM"]),
+            "TYPE_ANNOTATIONS_DIRECTORY_ITEM": set(["TYPE_FIELD_ID_ITEM", "TYPE_METHOD_ID_ITEM",
+                                                    "TYPE_ANNOTATION_SET_ITEM"])
+        }
+
+        ordered = dict()
+        while dependencies:
+            found_next = False
+            for type_name, unloaded in dependencies.items():
+                if not unloaded:
+                    ordered[type_name] = len(ordered)
+                    found_next = True
+                    break
+            if found_next is False:
+                raise Exception('recursive loading dependency')
+            dependencies.pop(type_name)
+            for unloaded in dependencies.values():
+                unloaded.discard(type_name)
+
+        return ordered
 
     def reload(self):
         pass
