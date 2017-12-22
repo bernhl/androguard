@@ -2568,7 +2568,6 @@ class EncodedField(object):
 
         :rtype: string
         """
-        # lbe TODO
         if self.access_flags_string is None:
             self.access_flags_string = get_access_flags_string(
                 self.get_access_flags())
@@ -2652,18 +2651,27 @@ class EncodedMethod(object):
 
         self.method_idx = self.method_idx_diff + val
 
-        # lbe TODO EncodedField uses different order?!
         v = self.CM.get_method(self.method_idx)
         if v and len(v) >= 3:
             self.name = v[1]
             self.proto = ''.join(i for i in v[2])
             self.class_name = v[0]
         else:
+            # TODO raise ValueError instead?
             self.class_name = 'CLASS_NAME_ERROR'
             self.name = 'NAME_ERROR'
             self.proto = 'PROTO_ERROR'
 
-        self.code = self.CM.get_code(self.code_off)
+        if self.code_off == 0:
+            # must be abstract or native, see encoded_method format
+            # TODO rewrite this once ACCESS_FLAGS is a dict
+            if 0x500 & self.access_flags == 0:
+                log.info('code_off must be != 0 if not native/abstract')
+                # TODO remove ValueError?
+                raise ValueError('code_off != in non-native/non-abstract')
+            self.code = None
+        else:
+            self.code = self.CM.get_code(self.code_off)
 
         self.access_flags_string = None
 
