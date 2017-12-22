@@ -110,6 +110,7 @@ def get_access_flags_string(value):
         if (i[0] & value) == i[0]:
             buff += i[1] + " "
 
+    # TODO make this a bit more pythonic with " ".join
     if buff != "":
         return buff[:-1]
     return buff
@@ -1953,10 +1954,7 @@ class TypeHIdItem(object):
         return self.type
 
     def get(self, idx):
-        try:
-            return self.type[idx].get_descriptor_idx()
-        except IndexError:
-            return -1
+        return self.type[idx].get_descriptor_idx()
 
     def set_off(self, off):
         self.offset = off
@@ -2113,10 +2111,7 @@ class ProtoHIdItem(object):
         return self.offset
 
     def get(self, idx):
-        try:
-            return self.proto[idx]
-        except IndexError:
-            return ProtoIdItemInvalid()
+        return self.proto[idx]
 
     def show(self):
         bytecode._PrintSubBanner("Proto List Item")
@@ -2276,10 +2271,7 @@ class FieldHIdItem(object):
         return self.elem
 
     def get(self, idx):
-        try:
-            return self.elem[idx]
-        except IndexError:
-            return FieldIdItemInvalid()
+        return self.elem[idx]
 
     def show(self):
         nb = 0
@@ -2451,10 +2443,7 @@ class MethodHIdItem(object):
         return self.offset
 
     def get(self, idx):
-        try:
-            return self.methods[idx]
-        except IndexError:
-            return MethodIdItemInvalid()
+        return self.methods[idx]
 
     def show(self):
         print("METHOD_ID_ITEM")
@@ -2475,61 +2464,6 @@ class MethodHIdItem(object):
         for i in self.methods:
             length += i.get_length()
         return length
-
-
-class ProtoIdItemInvalid(object):
-    def get_params(self):
-        return "AG:IPI:invalid_params;"
-
-    def get_shorty(self):
-        return "(AG:IPI:invalid_shorty)"
-
-    def get_return_type(self):
-        return "(AG:IPI:invalid_return_type)"
-
-    def show(self):
-        print("AG:IPI:invalid_proto_item", self.get_shorty(
-        ), self.get_return_type(), self.get_params())
-
-
-class FieldIdItemInvalid(object):
-    def get_class_name(self):
-        return "AG:IFI:invalid_class_name;"
-
-    def get_type(self):
-        return "(AG:IFI:invalid_type)"
-
-    def get_descriptor(self):
-        return "(AG:IFI:invalid_descriptor)"
-
-    def get_name(self):
-        return "AG:IFI:invalid_name"
-
-    def get_list(self):
-        return [self.get_class_name(), self.get_type(), self.get_name()]
-
-    def show(self):
-        print("AG:IFI:invalid_field_item")
-
-
-class MethodIdItemInvalid(object):
-    def get_class_name(self):
-        return "AG:IMI:invalid_class_name;"
-
-    def get_descriptor(self):
-        return "(AG:IMI:invalid_descriptor)"
-
-    def get_proto(self):
-        return "()AG:IMI:invalid_proto"
-
-    def get_name(self):
-        return "AG:IMI:invalid_name"
-
-    def get_list(self):
-        return [self.get_class_name(), self.get_name(), self.get_proto()]
-
-    def show(self):
-        print("AG:IMI:invalid_method_item")
 
 
 class EncodedField(object):
@@ -6774,10 +6708,7 @@ class CodeItem(object):
         return self.offset
 
     def get_code(self, off):
-        try:
-            return self.__code_off[off]
-        except KeyError:
-            return None
+        return self.__code_off[off]
 
     def show(self, m_a=None):
         # FIXME workaround for showing the MAP_ITEMS
@@ -7046,10 +6977,7 @@ class ClassManager(object):
             self.__manage_item_off.append(c_item.get_offset())
 
     def get_code(self, idx):
-        try:
-            return self.__manage_item["TYPE_CODE_ITEM"].get_code(idx)
-        except KeyError:
-            return None
+        return self.__manage_item["TYPE_CODE_ITEM"].get_code(idx)
 
     def get_class_data_item(self, off):
         i = self.__classdata_off.get(off)
